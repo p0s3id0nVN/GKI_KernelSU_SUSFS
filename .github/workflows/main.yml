@@ -246,7 +246,7 @@ jobs:
   # Khi release_type không phải là Actions, sẽ tạo GitHub Release
   # Chỉ giới hạn chạy trên repo gốc, fork repo sẽ bỏ qua bước này
   release:
-    if: ${{ always() && !cancelled() && inputs.release_type != 'Actions' && github.repository == 'coolzyd9107/GKI_KernelSU_SUSFS' }}
+    if: ${{ always() && !cancelled() && inputs.release_type != 'Actions' && github.repository == 'p0s3id0nVN/GKI_KernelSU_SUSFS' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
