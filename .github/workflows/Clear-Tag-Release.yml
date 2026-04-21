@@ -1,5 +1,10 @@
 name: 🚑 Dọn dẹp Release và Tag
 
+# Cấp quyền cho phép Action xóa Release và Tag
+permissions:
+  contents: write
+  actions: write
+
 on:
   workflow_dispatch:
     inputs:
