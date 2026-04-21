@@ -1,18 +1,14 @@
-name: Emergency Release Cleanup
-
-# 适配 Node.js 24
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+name: 🚑 Dọn dẹp Release Khẩn cấp
 
 on:
   workflow_dispatch:
     inputs:
       target_tag:
-        description: '目标发布标签 (Target Release Tag)'
+        description: '🏷️ Tag Release mục tiêu'
         required: true
         type: string
       issue_type:
-        description: '问题类型 (Issue Type)'
+        description: '🚨 Loại sự cố'
         required: true
         type: choice
         options:
@@ -20,30 +16,30 @@ on:
           - Bug
           - Critical
       reference:
-        description: '问题链接或说明 (Issue link or description, optional)'
+        description: '🔗 Link hoặc mô tả sự cố (Tùy chọn)'
         required: false
         type: string
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-    # 仅允许仓库所有者执行
+    # Chỉ cho phép chủ sở hữu repo thực thi
     if: github.actor == github.repository_owner
 
     steps:
-      # ==================== 验证发布是否存在 ====================
-      - name: 验证 Release 存在
+      # ==================== Xác minh Release ====================
+      - name: 🔍 Xác minh Release tồn tại
         run: |
           if ! gh release view "${{ inputs.target_tag }}" --repo ${{ github.repository }} > /dev/null 2>&1; then
-            echo "::error::Release '${{ inputs.target_tag }}' 不存在"
+            echo "::error::Release '${{ inputs.target_tag }}' không tồn tại"
             exit 1
           fi
-          echo "✅ 找到 Release: ${{ inputs.target_tag }}"
+          echo "✅ Đã tìm thấy Release: ${{ inputs.target_tag }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ==================== 获取原始发布信息 ====================
-      - name: 获取原始发布信息
+      # ==================== Lấy thông tin gốc ====================
+      - name: ℹ️ Lấy thông tin Release gốc
         id: info
         run: |
           gh release view "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
@@ -55,18 +51,18 @@ jobs:
           IS_PRERELEASE=$(jq -r '.isPrerelease' release_info.json)
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
 
-          echo "📋 原标题: $(cat original_title.txt)"
+          echo "📋 Tiêu đề gốc: $(cat original_title.txt)"
           echo "📋 Pre-release: $IS_PRERELEASE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ==================== 处理 Normal 类型 ====================
-      - name: 处理 Normal 类型 - 标记正常
+      # ==================== Xử lý loại Normal ====================
+      - name: 🟢 Xử lý loại Normal - Đánh dấu bình thường
         if: inputs.issue_type == 'Normal'
         run: |
           cat > new_body.md << 'EOF'
           > [!TIP]
-          > **此版本已验证，可正常使用。**
+          > **Phiên bản này đã được xác minh và có thể sử dụng bình thường.**
           >
           > **This release has been verified and is safe to use.**
           EOF
@@ -75,7 +71,7 @@ jobs:
 
           if [ -n "${{ inputs.reference }}" ]; then
             echo "" >> new_body.md
-            echo "**参考 / Reference**: ${{ inputs.reference }}" >> new_body.md
+            echo "**Tham khảo / Reference**: ${{ inputs.reference }}" >> new_body.md
           fi
 
           echo "" >> new_body.md
@@ -86,17 +82,17 @@ jobs:
           gh release edit "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
             --notes-file new_body.md
 
-          echo "✅ 已标记 Release 为正常 (Normal)"
+          echo "✅ Đã đánh dấu Release là bình thường (Normal)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ==================== 处理 Bug 类型 ====================
-      - name: 处理 Bug 类型
+      # ==================== Xử lý loại Bug ====================
+      - name: 🟡 Xử lý loại Bug
         if: inputs.issue_type == 'Bug'
         run: |
           cat > new_body.md << 'EOF'
           > [!WARNING]
-          > **此版本存在已知 Bug，建议谨慎使用。**
+          > **Phiên bản này có lỗi đã biết (Bug), khuyên bạn nên sử dụng cẩn thận.**
           >
           > **This release contains known bugs, use with caution.**
           EOF
@@ -105,7 +101,7 @@ jobs:
 
           if [ -n "${{ inputs.reference }}" ]; then
             echo "" >> new_body.md
-            echo "**参考 / Reference**: ${{ inputs.reference }}" >> new_body.md
+            echo "**Tham khảo / Reference**: ${{ inputs.reference }}" >> new_body.md
           fi
 
           echo "" >> new_body.md
@@ -116,22 +112,22 @@ jobs:
           gh release edit "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
             --notes-file new_body.md
 
-          echo "✅ 已更新 Release 说明 (Bug)"
+          echo "✅ Đã cập nhật mô tả Release (Bug)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ==================== 处理 Critical 类型 ====================
-      - name: 处理 Critical 类型 - 删除并重建
+      # ==================== Xử lý loại Critical ====================
+      - name: 🔴 Xử lý loại Critical - Xóa và làm lại
         if: inputs.issue_type == 'Critical'
         run: |
           ORIGINAL_TITLE=$(cat original_title.txt)
 
-          # 构建警告信息
+          # Tạo thông báo cảnh báo
           cat > new_body.md << 'EOF'
           > [!CAUTION]
-          > **本次发布的资源包含导致死机的严重 Bug，所有附件已被清除！**
+          > **Tài nguyên của bản phát hành này chứa lỗi nghiêm trọng gây treo máy, toàn bộ file đính kèm đã bị xóa!**
           >
-          > **请勿使用此版本，等待修复版本发布。**
+          > **Vui lòng KHÔNG sử dụng phiên bản này, hãy chờ bản sửa lỗi được phát hành.**
           >
           > **This release contained a critical bug causing device crashes. All assets have been removed!**
           >
@@ -142,7 +138,7 @@ jobs:
 
           if [ -n "${{ inputs.reference }}" ]; then
             echo "" >> new_body.md
-            echo "**参考 / Reference**: ${{ inputs.reference }}" >> new_body.md
+            echo "**Tham khảo / Reference**: ${{ inputs.reference }}" >> new_body.md
           fi
 
           echo "" >> new_body.md
@@ -150,33 +146,33 @@ jobs:
           echo "" >> new_body.md
           cat original_body.txt >> new_body.md
 
-          # 删除 Release（保留 Git Tag）
-          echo "🗑️ 删除原 Release..."
+          # Xóa Release (Giữ lại Git Tag)
+          echo "🗑️ Đang xóa Release gốc..."
           gh release delete "${{ inputs.target_tag }}" --repo ${{ github.repository }} --yes
 
-          # 确定 prerelease 标志
+          # Cờ prerelease
           PRERELEASE_FLAG=""
           if [ "${{ steps.info.outputs.is_prerelease }}" == "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
 
-          # 重建 Release（不上传任何文件）
-          echo "🔄 重建 Release..."
+          # Tạo lại Release (Không upload bất kỳ file nào)
+          echo "🔄 Đang tạo lại Release..."
           gh release create "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
             --title "$ORIGINAL_TITLE" \
             --notes-file new_body.md \
             $PRERELEASE_FLAG
 
-          echo "✅ 已清除所有附件并重建 Release (Critical)"
+          echo "✅ Đã xóa sạch file đính kèm và tạo lại Release (Critical)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ==================== 完成通知 ====================
-      - name: 完成
+      # ==================== Hoàn tất ====================
+      - name: ✅ Hoàn tất
         run: |
           echo "=========================================="
-          echo "🎯 目标标签: ${{ inputs.target_tag }}"
-          echo "📌 问题类型: ${{ inputs.issue_type }}"
-          echo "📝 参考信息: ${{ inputs.reference || '无' }}"
+          echo "🎯 Tag mục tiêu: ${{ inputs.target_tag }}"
+          echo "📌 Loại sự cố: ${{ inputs.issue_type }}"
+          echo "📝 Thông tin tham khảo: ${{ inputs.reference || 'Không có' }}"
           echo "=========================================="
-          echo "✅ 紧急清理完成！"
+          echo "✅ Dọn dẹp khẩn cấp hoàn tất!"

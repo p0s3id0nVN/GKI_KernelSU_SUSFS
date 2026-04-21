@@ -1,13 +1,13 @@
 # ========================================
 # 🚀 QUY TRÌNH BUILD KERNEL GKI
 # ========================================
-# Workflow này chịu trách nhiệm biên dịch Kernel GKI của Android, hỗ trợ nhiều biến thể KernelSU và SUSFS
+# Workflow này chịu trách nhiệm biên dịch Kernel GKI Android, hỗ trợ nhiều biến thể KernelSU và SUSFS
 # Được gọi thông qua workflow_call bởi các workflow khác, không kích hoạt thủ công trực tiếp
 # ========================================
 
 name: 🚀 Quy trình Build Kernel
 
-# 🟢 Tương thích Node.js 24
+# Tương thích Node.js 24
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -85,15 +85,15 @@ jobs:
     timeout-minutes: 60
 
     # ==================== Cấu hình biến môi trường ====================
-    # Cấu hình ccache để tăng tốc biên dịch lặp lại
+    # ccache được dùng để tăng tốc độ biên dịch lại
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
       CCACHE_HARDLINK: "true"
 
     steps:
-      # ==================== 📋 Tóm tắt thông tin build ====================
-      # In ra tất cả thông tin cấu hình của bản build hiện tại để dễ dàng gỡ lỗi và theo dõi
+      # ==================== Tóm tắt thông tin build ====================
+      # In ra toàn bộ thông tin cấu hình hiện tại, thuận tiện cho debug
       - name: 📋 Tóm tắt thông tin build
         run: |
           echo "========================================"
@@ -114,8 +114,8 @@ jobs:
           echo "Stock Config       : Tự động phát hiện config/stock_defconfig"
           echo "========================================"
 
-      # ==================== 🧹 Dọn dẹp không gian đĩa ====================
-      # Dung lượng đĩa mặc định của GitHub Actions có hạn, cần dọn dẹp các phần mềm cài sẵn không cần thiết
+      # ==================== Dọn dẹp không gian đĩa ====================
+      # Dung lượng mặc định của GitHub Actions có hạn, cần xóa bớt phần mềm không dùng
       - name: 🧹 Dọn dẹp không gian đĩa
         uses: endersonmenezes/free-disk-space@v3
         with:
@@ -131,20 +131,20 @@ jobs:
           rmz_version: "3.1.1"
           testing: false
 
-      # ==================== 📥 Checkout mã nguồn ====================
-      - name: 📥 Checkout mã nguồn repository
+      # ==================== Checkout mã nguồn ====================
+      - name: 📥 Checkout repository
         uses: actions/checkout@v6
 
-      # ==================== ⚙️ Khởi tạo môi trường build ====================
-      # Thiết lập các biến đường dẫn, bao gồm mã nguồn kernel, bản vá, công cụ, v.v.
+      # ==================== Khởi tạo môi trường build ====================
+      # Thiết lập các biến thư mục như mã nguồn, bản vá, tools
       - name: ⚙️ Khởi tạo môi trường build
         run: |
-          # Định danh cấu hình build
+          # Định danh cấu hình
           CONFIG="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}"
           KERNEL_ROOT="$GITHUB_WORKSPACE/$CONFIG"
           mkdir -p "$KERNEL_ROOT"
 
-          # Xuất các biến môi trường cho các bước tiếp theo
+          # Đưa các biến ra môi trường
           cat >> $GITHUB_ENV << EOF
           CONFIG=$CONFIG
           KERNEL_ROOT=$KERNEL_ROOT
@@ -161,14 +161,14 @@ jobs:
           BOOT_SIGN_KEY_PATH=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem
           EOF
 
-          # Tải và cấu hình công cụ repo (dùng để đồng bộ mã nguồn kernel Android)
+          # Tải và thiết lập công cụ repo (để đồng bộ nguồn Android)
           mkdir -p "$GITHUB_WORKSPACE/git-repo"
           curl -L https://storage.googleapis.com/git-repo-downloads/repo -o "$GITHUB_WORKSPACE/git-repo/repo"
           chmod 0755 "$GITHUB_WORKSPACE/git-repo/repo"
           echo "$GITHUB_WORKSPACE/git-repo" >> "$GITHUB_PATH"
           echo "REPO=$GITHUB_WORKSPACE/git-repo/repo" >> $GITHUB_ENV
 
-      # ==================== 📄 Hiển thị nội dung file cấu hình ====================
+      # ==================== Hiển thị cấu hình file ====================
       - name: 📄 Hiển thị thông tin cấu hình
         run: |
           CONFIG_FILE="$GITHUB_WORKSPACE/config/config"
@@ -177,15 +177,14 @@ jobs:
             cat "$CONFIG_FILE"
           fi
 
-      # ==================== 📦 Cài đặt thư viện phụ thuộc ====================
-      # Cài đặt các công cụ và thư viện cần thiết để biên dịch kernel (sử dụng bộ nhớ cache apt để tăng tốc)
+      # ==================== Cài đặt phụ thuộc ====================
+      # Cài các công cụ và thư viện để biên dịch
       - name: 📦 Cài đặt thư viện phụ thuộc
         run: |
           sudo apt-get update
           sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
 
-      # ==================== 🚀 Cấu hình ccache ====================
-      # ccache được dùng để lưu bộ nhớ đệm kết quả biên dịch, tăng tốc cho các lần build sau
+      # ==================== Cấu hình ccache ====================
       - name: 🚀 Cấu hình ccache
         run: |
           mkdir -p ~/.cache/bazel
@@ -194,7 +193,7 @@ jobs:
           ccache --set-config=compression=true
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
-      # ==================== ♻️ Khôi phục bộ nhớ đệm ccache ====================
+      # ==================== Khôi phục ccache ====================
       - name: ♻️ Khôi phục bộ nhớ đệm ccache
         uses: actions/cache@v5
         with:
@@ -203,9 +202,8 @@ jobs:
           restore-keys: |
             ${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}-ccache-
 
-      # ==================== 🧰 Lưu bộ nhớ đệm chuỗi công cụ ====================
-      # Lưu bộ nhớ đệm công cụ build AOSP, tránh việc phải tải lại mỗi lần
-      - name: 🧰 Lưu bộ nhớ đệm chuỗi công cụ (Toolchain)
+      # ==================== Cache Toolchain ====================
+      - name: 🧰 Lưu bộ nhớ đệm Toolchain
         id: cache-toolchain
         uses: actions/cache@v5
         with:
@@ -214,9 +212,8 @@ jobs:
             mkbootimg
           key: toolchain-${{ runner.os }}-v1
 
-      # ==================== ⬇️ Tải xuống chuỗi công cụ ====================
-      # Tải xuống công cụ build kernel và mkbootimg từ máy chủ lưu trữ AOSP
-      - name: ⬇️ Tải xuống chuỗi công cụ
+      # ==================== Tải Toolchain ====================
+      - name: ⬇️ Tải xuống Toolchain
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
         run: |
           AOSP_MIRROR=https://android.googlesource.com
@@ -224,34 +221,32 @@ jobs:
           git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
           git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
 
-      # ==================== 🔑 Tạo khóa chữ ký ====================
-      # Tạo khóa RSA dùng để ký file boot.img
+      # ==================== Tạo khóa ký ====================
       - name: 🔑 Tạo khóa chữ ký
         run: |
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > $BOOT_SIGN_KEY_PATH
 
-      # ==================== ⚙️ Cấu hình Git ====================
+      # ==================== Cấu hình Git ====================
       - name: ⚙️ Cấu hình Git
         run: |
           git config --global user.name "BuildBot"
           git config --global user.email "BuildGkiKernel@gmail.com"
 
-      # ==================== 📥 Clone các repository phụ thuộc ====================
-      # Clone AnyKernel3, SUSFS, và các repository chứa bản vá khác
+      # ==================== Clone Repo phụ thuộc ====================
       - name: 📥 Clone các repository phụ thuộc
         run: |
           ANYKERNEL_BRANCH="gki-2.0"
           SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
 
-          echo "Đang clone AnyKernel3..."
+          echo "Clone AnyKernel3..."
           git clone https://github.com/coolzyd9107/AnyKernel3.git -b "master"
           rm -rf AnyKernel3/.git
 
-          echo "Đang clone SUSFS (Nhánh: $SUSFS_BRANCH)..."
-          # ReSukiSU sử dụng bản SUSFS gốc của simonpunk
+          echo "Clone SUSFS (nhánh: $SUSFS_BRANCH)..."
+          # ReSukiSU dùng SUSFS gốc của simonpunk
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
 
-          # Kiểm tra xem có bật tùy chọn commit tùy chỉnh không
+          # Kiểm tra xem có bật tùy chỉnh commit không
           CONFIG_FILE="config/config"
           if [ -f "$CONFIG_FILE" ]; then
             CUSTOM_ENABLED=$(grep "^custom=" "$CONFIG_FILE" | cut -d'=' -f2)
@@ -268,20 +263,19 @@ jobs:
 
           SUSFS_LATEST_COMMIT_DATE=$(git -C susfs4ksu log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
           echo "SUSFS_LATEST_COMMIT_DATE=$SUSFS_LATEST_COMMIT_DATE" >> $GITHUB_ENV
-          echo "Ngày commit mới nhất của kho SUSFS: $SUSFS_LATEST_COMMIT_DATE"
+          echo "Ngày commit mới nhất repo SUSFS: $SUSFS_LATEST_COMMIT_DATE"
 
-          echo "Đang chuẩn bị tài nguyên bản vá (patch)..."
+          echo "Đang chuẩn bị file patch..."
           git clone https://github.com/WildKernels/kernel_patches.git
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
-          echo "Sử dụng thư mục bản vá của kho hiện tại: $ZZH_PATCHES"
+          echo "Sử dụng đường dẫn patch nội bộ: $ZZH_PATCHES"
           git clone https://github.com/Numbersf/Action-Build.git --depth=1
 
-      # ==================== 🔄 Khởi tạo và đồng bộ mã nguồn kernel ====================
-      # Sử dụng công cụ repo để lấy mã nguồn kernel GKI từ AOSP
+      # ==================== Khởi tạo và đồng bộ mã nguồn ====================
       - name: 🔄 Khởi tạo và đồng bộ mã nguồn kernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
-          # Clone chuỗi công cụ GCC (dùng cho kernel 5.x)
+          # Clone GCC (cho nhân 5.x)
           git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-gnu-6.4.1.git gcc
 
           FORMATTED_BRANCH="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.os_patch_level }}"
@@ -289,64 +283,57 @@ jobs:
 
           $REPO init --depth=1 -u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
 
-          # Kiểm tra xem có phải là nhánh đã bị ngừng hỗ trợ (deprecated) hay không
+          # Kiểm tra nhánh đã bị gỡ bỏ
           REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH})
           DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
 
           if grep -q deprecated <<< $REMOTE_BRANCH; then
-            echo "Phát hiện nhánh đã ngừng hỗ trợ: $FORMATTED_BRANCH"
+            echo "Phát hiện nhánh bị gỡ bỏ (deprecated): $FORMATTED_BRANCH"
             sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" $DEFAULT_MANIFEST_PATH
           fi
 
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
           echo "REMOTE_BRANCH=$REMOTE_BRANCH" >> $GITHUB_ENV
 
-      # ==================== 🎭 Ngụy trang /proc/config.gz (Tự động phát hiện) ====================
-      # Nếu trong kho có config/stock_defconfig thì tự động áp dụng; không có thì bỏ qua
+      # ==================== Áp dụng Stock Config ====================
       - name: 🎭 Áp dụng ngụy trang Stock Config
         run: |
-          # Đường dẫn nguồn stock_defconfig trong kho và đường dẫn đích trong mã nguồn kernel
+          # Nguồn stock_defconfig và đường dẫn đích
           STOCK_SRC="$GITHUB_WORKSPACE/config/stock_defconfig"
           STOCK_DST="$KERNEL_ROOT/common/arch/arm64/configs/stock_defconfig"
 
-          # Bỏ qua trực tiếp nếu không cung cấp stock_defconfig, không ảnh hưởng đến quy trình chính
           if [ ! -f "$STOCK_SRC" ]; then
-            echo "Không phát hiện thấy $STOCK_SRC, bỏ qua ngụy trang Stock Config."
+            echo "Không phát hiện $STOCK_SRC, bỏ qua ngụy trang Stock Config."
             exit 0
           fi
 
-          # Đảm bảo thư mục đích đã tồn tại trước, tránh lỗi cp do thiếu thư mục
           mkdir -p "$(dirname "$STOCK_DST")"
           if ! cp "$STOCK_SRC" "$STOCK_DST"; then
-            echo "::error::Sao chép stock_defconfig thất bại: $STOCK_SRC -> $STOCK_DST"
+            echo "::error::Copy stock_defconfig thất bại: $STOCK_SRC -> $STOCK_DST"
             exit 1
           fi
-          echo "Đã sao chép stock_defconfig -> $STOCK_DST"
+          echo "Đã copy stock_defconfig -> $STOCK_DST"
 
-          # Mục tiêu thay thế quy tắc: cố định là common/kernel/Makefile (phù hợp với cấu trúc thư mục hiện tại)
           NEW_RULE='$(obj)/config_data: arch/arm64/configs/stock_defconfig FORCE'
           OLD_RULE='$(obj)/config_data: $(KCONFIG_CONFIG) FORCE'
           TARGET_MAKEFILE="$KERNEL_ROOT/common/kernel/Makefile"
 
-          # Thất bại ngay nếu không tìm thấy Makefile mục tiêu, ngăn ngừa sửa nhầm file khác
           if [ ! -f "$TARGET_MAKEFILE" ]; then
             echo "::error::Không tìm thấy $TARGET_MAKEFILE"
             exit 1
           fi
 
-          # Chỉ cho phép 2 trạng thái: đã là quy tắc mới / khớp quy tắc cũ và thay thế; các trường hợp khác đều báo lỗi
           if grep -qF "$NEW_RULE" "$TARGET_MAKEFILE"; then
-            echo "Quy tắc config_data đã là stock_defconfig, bỏ qua."
+            echo "Rule config_data đã chuẩn, bỏ qua."
           elif grep -qF "$OLD_RULE" "$TARGET_MAKEFILE"; then
             sed -i 's|\$(obj)/config_data: \$(KCONFIG_CONFIG) FORCE|$(obj)/config_data: arch/arm64/configs/stock_defconfig FORCE|' "$TARGET_MAKEFILE"
-            echo "Đã thay thế quy tắc config_data: $TARGET_MAKEFILE"
+            echo "Đã thay đổi rule config_data: $TARGET_MAKEFILE"
           else
             echo "::error::Không tìm thấy quy tắc: $OLD_RULE trong $TARGET_MAKEFILE"
             exit 1
           fi
 
-      # ==================== 🏷️ Trích xuất số phiên bản phụ thực tế ====================
-      # Đọc giá trị SUBLEVEL thực tế từ Makefile
+      # ==================== Lấy phiên bản phụ thực tế ====================
       - name: 🏷️ Trích xuất số phiên bản phụ thực tế
         run: |
           ACTUAL_SUBLEVEL="${{ inputs.sub_level }}"
@@ -355,10 +342,9 @@ jobs:
             [[ -n "$EXTRACTED" ]] && ACTUAL_SUBLEVEL="$EXTRACTED"
           fi
           echo "ACTUAL_SUBLEVEL=$ACTUAL_SUBLEVEL" >> $GITHUB_ENV
-          echo "Số phiên bản phụ thực tế: $ACTUAL_SUBLEVEL"
+          echo "Bản phụ thực tế: $ACTUAL_SUBLEVEL"
 
-      # ==================== 🩹 Sửa lỗi tương thích glibc 2.38 ====================
-      # Một số kernel cũ khi biên dịch trên glibc mới sẽ bị lỗi, cần phải patch
+      # ==================== Fix glibc 2.38 ====================
       - name: 🩹 Sửa lỗi tương thích glibc 2.38
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
@@ -375,7 +361,7 @@ jobs:
           if [ "$NEEDS_FIX" = true ]; then
             GLIBC_VERSION=$(ldd --version 2>/dev/null | head -n 1 | awk '{print $NF}')
             if [ "$(printf '%s\n' "2.38" "$GLIBC_VERSION" | sort -V | head -n1)" = "2.38" ]; then
-              echo "Đang áp dụng bản vá lỗi tương thích glibc 2.38..."
+              echo "Tiến hành sửa lỗi tương thích glibc 2.38..."
               sed -i '/\$(Q)\$(MAKE) -C \$(SUBCMD_SRC) OUTPUT=\$(abspath \$(dir \$@))\/ \$(abspath \$@)/s//$(Q)$(MAKE) -C $(SUBCMD_SRC) EXTRA_CFLAGS="$(CFLAGS)" OUTPUT=$(abspath $(dir $@))\/ $(abspath $@)/' tools/bpf/resolve_btfids/Makefile 2>/dev/null || true
 
               if [[ "${{ inputs.kernel_version }}" == "5.10" || "${{ inputs.kernel_version }}" == "5.15" ]]; then
@@ -387,37 +373,34 @@ jobs:
             fi
           fi
 
-      # ==================== 📱 Hỗ trợ bộ vi xử lý OnePlus 8E ====================
-      # Thêm bản vá hỗ trợ cho các dòng máy sử dụng bộ vi xử lý OnePlus 8E
+      # ==================== Hỗ trợ OnePlus 8E ====================
       - name: 📱 Thêm hỗ trợ OnePlus 8E
         if: inputs.supp_op
         working-directory: ${{ env.KERNEL_ROOT }}/common/drivers
         run: |
-          echo "Đang tải xuống bản vá hỗ trợ OnePlus 8E..."
+          echo "Đang tải patch cho OnePlus 8E..."
           curl -LSs "https://github.com/zzh20188/GKI_KernelSU_SUSFS/raw/refs/heads/dev/hmbird_patch.c" -o hmbird_patch.c
           echo "obj-y += hmbird_patch.o" >> Makefile
 
-      # ==================== 🌿 Xác định nhánh KernelSU ====================
-      # ReSukiSU hỗ trợ tùy chỉnh nhánh hoặc mã hash commit
+      # ==================== Nhánh KSU ====================
       - name: 🌿 Xác định nhánh KernelSU
         id: ksu-branch
         run: |
           branch_input="${{ inputs.ksu_branch }}"
 
-          # Nếu người dùng nhập tên nhánh tùy chỉnh hoặc mã hash commit, sử dụng trực tiếp
+          # Nếu user có nhập custom branch/commit
           if [ -n "$branch_input" ]; then
             BRANCH="-s $branch_input"
-            echo "Sử dụng nhánh/commit tùy chỉnh: $branch_input"
+            echo "Dùng nhánh/commit tùy chỉnh: $branch_input"
           else
-            # ReSukiSU mặc định sử dụng nhánh main
+            # ReSukiSU default là main
             BRANCH="-s main"
           fi
 
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-          echo "Nhánh KSU: $BRANCH"
+          echo "KSU Branch: $BRANCH"
 
-      # ==================== 🧬 Thêm KernelSU ====================
-      # Thêm ReSukiSU
+      # ==================== Thêm KernelSU ====================
       - name: 🧬 Thêm KernelSU
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
@@ -427,19 +410,17 @@ jobs:
           if [ -d "KernelSU/.git" ]; then
             KSU_LATEST_COMMIT_DATE=$(git -C KernelSU log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
             echo "KSU_LATEST_COMMIT_DATE=$KSU_LATEST_COMMIT_DATE" >> $GITHUB_ENV
-            echo "Ngày commit mới nhất của kho KSU: $KSU_LATEST_COMMIT_DATE"
+            echo "Ngày commit mới nhất repo KSU: $KSU_LATEST_COMMIT_DATE"
           else
             echo "KSU_LATEST_COMMIT_DATE=Không rõ" >> $GITHUB_ENV
           fi
 
-      # ==================== 👻 Áp dụng bản vá SUSFS ====================
-      # SUSFS (Super User SUS FileSystem) được dùng để ẩn dấu vết root
+      # ==================== Patch SUSFS ====================
       - name: 👻 Áp dụng bản vá SUSFS
         if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
-          echo "Đang áp dụng bản vá SUSFS..."
-          # Đọc phiên bản upstream của SUSFS (ví dụ: v2.1.0), dùng để khớp thư mục bản vá lỗi của wild
+          echo "Đang patch SUSFS..."
           SUSFS_VERSION=$(grep -E '^#define[[:space:]]+SUSFS_VERSION' "$SUSFS4KSU/kernel_patches/include/linux/susfs.h" | awk '{print $3}' | tr -d '"' | sed 's/^v//')
           if [ -z "$SUSFS_VERSION" ]; then
             SUSFS_VERSION="2.0.0"
@@ -448,27 +429,23 @@ jobs:
             echo "Không tìm thấy wild/susfs_fix_patches/v${SUSFS_VERSION}, quay về v2.0.0"
             SUSFS_VERSION="2.0.0"
           fi
-          echo "Phiên bản bản vá lỗi SUSFS: v${SUSFS_VERSION}"
+          echo "Bản fix SUSFS version: v${SUSFS_VERSION}"
 
-          # Sao chép các tệp cơ bản của SUSFS
           cp $SUSFS4KSU/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
           cp $SUSFS4KSU/kernel_patches/fs/* ./common/fs/
           cp $SUSFS4KSU/kernel_patches/include/linux/* ./common/include/linux/
 
-          # ReSukiSU sử dụng hỗ trợ SUSFS được tích hợp sẵn
-          echo "ReSukiSU sử dụng hỗ trợ SUSFS tích hợp sẵn"
+          echo "ReSukiSU hỗ trợ SUSFS built-in"
 
-          # Áp dụng bản vá SUSFS chính vào kernel
           cd $KERNEL_ROOT/common
           patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
 
-          # Áp dụng các bản vá lỗi dành riêng cho từng phiên bản
           CURRENT_SUB="${{ inputs.sub_level }}"
           if [[ ! "$CURRENT_SUB" =~ ^[0-9]+$ ]]; then
             CURRENT_SUB=99999
           fi
 
-          # Sửa lỗi cho Android 12 - 5.10
+          # Android 12 - 5.10 fix
           if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
             if [[ "$CURRENT_SUB" -le 209 ]]; then
               sed -i -e 's/goto show_pad;/return 0;/' ./fs/proc/task_mmu.c
@@ -476,31 +453,16 @@ jobs:
             if [[ "$CURRENT_SUB" -le 117 ]]; then
               cp $KERNEL_PATCHES/wild/susfs_fix_patches/v${SUSFS_VERSION}/a12-5.10/fdinfo.c.patch ./
               patch -p1 < fdinfo.c.patch || true
-              # Sửa lỗi biên dịch do kernel 5.10.x ≤ 117 thiếu hàm inotify_mark_user_mask
-              # SUSFS v2.0.0 đã giới thiệu hàm này trong fdinfo.c, nhưng hàm này không tồn tại trong các phiên bản kernel 5.10.117 trở xuống
-              # Sử dụng biểu thức tương đương mark->mask & IN_ALL_EVENTS để thay thế
               sed -i 's/inotify_mark_user_mask(mark)/mark->mask \& IN_ALL_EVENTS/g' ./fs/notify/fdinfo.c
             fi
             if [[ "$CURRENT_SUB" -le 43 ]]; then
               cp $KERNEL_PATCHES/wild/susfs_fix_patches/v${SUSFS_VERSION}/a12-5.10/base.c.patch ./
               patch -p1 < base.c.patch || true
-              # TODO: Đợi WildKernels cập nhật bản vá rồi xóa comment
-              # # Sửa ký hiệu cũ BIT_SUS_MAPS trong bản vá WildKernels (Kho SUSFS đã đổi tên thành AS_FLAGS_SUS_MAP + test_bit)
-              # if grep -q 'BIT_SUS_MAPS' ./fs/proc/base.c; then
-              #   sed -i 's|unlikely(inode->i_mapping->flags & BIT_SUS_MAPS) && susfs_is_current_proc_umounted()|inode->i_mapping \&\& unlikely(test_bit(AS_FLAGS_SUS_MAP, \&inode->i_mapping->flags) \&\& susfs_is_current_proc_umounted_app())|g' ./fs/proc/base.c
-              # fi
             fi
-            # TODO: Đợi WildKernels cập nhật bản vá rồi xóa comment
-            # # Đảm bảo base.c có bao gồm susfs_def.h (Bản vá chính SUSFS được build lại dựa trên 5.10.246, phần include có thể thất bại trong im lặng)
-            # if grep -q 'AS_FLAGS_SUS_MAP\|susfs_is_current_proc_umounted' ./fs/proc/base.c && ! grep -qF 'susfs_def.h' ./fs/proc/base.c; then
-            #   sed -i '/#include <linux\/cpufreq_times.h>/a #endif' ./fs/proc/base.c
-            #   sed -i '/#include <linux\/cpufreq_times.h>/a #include <linux\/susfs_def.h>' ./fs/proc/base.c
-            #   sed -i '/#include <linux\/cpufreq_times.h>/a #ifdef CONFIG_KSU_SUSFS_SUS_MAP' ./fs/proc/base.c
-            # fi
           fi
           
 
-          # Sửa lỗi cho Android 13 - 5.15
+          # Android 13 - 5.15 fix
           if [[ "${{ inputs.android_version }}" == "android13" && "${{ inputs.kernel_version }}" == "5.15" ]]; then
             if [[ "$CURRENT_SUB" -le 41 ]]; then
               cp $KERNEL_PATCHES/wild/susfs_fix_patches/v${SUSFS_VERSION}/a13-5.15/namespace.c.patch ./
@@ -509,10 +471,6 @@ jobs:
               patch -p1 < fdinfo.c.patch || true
               cp $KERNEL_PATCHES/wild/susfs_fix_patches/v${SUSFS_VERSION}/a13-5.15/open.c.patch ./
               patch -p1 < open.c.patch || true
-              # TODO: Đợi WildKernels cập nhật bản vá rồi xóa comment
-              # # Sửa lỗi i_user_ns: 5.15.41 không có hàm này, sau khi kho SUSFS build lại đã thêm biến thể &fi->inode
-              # sed -i 's|is_i_uid_not_allowed(i_uid_into_mnt(i_user_ns(&fi->inode), &fi->inode).val)))|is_i_uid_not_allowed(fi->inode.i_uid.val)))|g' fs/susfs.c
-              # sed -i 's|is_i_uid_not_allowed(i_uid_into_mnt(i_user_ns(inode), inode).val)))|is_i_uid_not_allowed(inode->i_uid.val)))|g' fs/susfs.c
             fi
             if [[ "$CURRENT_SUB" -le 148 && "${{ inputs.os_patch_level }}" != "2024-05" ]]; then
               sed -i -e 's/goto show_pad;/return 0;/' ./fs/proc/task_mmu.c
@@ -520,7 +478,7 @@ jobs:
           fi
 
 
-          # Sửa lỗi cho Android 14 - 6.1
+          # Android 14 - 6.1 fix
           if [[ "${{ inputs.android_version }}" == "android14" && "${{ inputs.kernel_version }}" == "6.1" ]]; then
             if [[ "$CURRENT_SUB" -le 141 || "$CURRENT_SUB" -ge 145 ]]; then
               cp $KERNEL_PATCHES/wild/susfs_fix_patches/v${SUSFS_VERSION}/a14-6.1/base.c.patch ./
@@ -535,10 +493,8 @@ jobs:
             if [[ "$CURRENT_SUB" -le 75 && "${{ inputs.os_patch_level }}" != "2024-05" ]]; then
               sed -i -e 's/goto show_pad;/return 0;/' ./fs/proc/task_mmu.c
             fi
-            # Sửa lỗi 6.1 LTS: Bản vá SUSFS thất bại ở phần đầu namespace.c do ngữ cảnh không khớp,
-            # dẫn đến các ký hiệu SUSFS (như DEFAULT_KSU_MNT_ID v.v.) trong thân hàm không được khai báo
             if grep -q 'DEFAULT_KSU_MNT_ID\|susfs_mnt_id_ida' ./fs/namespace.c && ! grep -qF '#include <linux/susfs_def.h>' ./fs/namespace.c; then
-              echo "Phát hiện namespace.c thiếu susfs_def.h, tiến hành chèn khai báo..."
+              echo "Phát hiện namespace.c thiếu susfs_def.h, tiến hành chèn..."
               sed -i '/#include <linux\/mnt_idmapping.h>/a #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n#include <linux\/susfs_def.h>\n#endif' ./fs/namespace.c
               if ! grep -q 'extern bool susfs_is_current_ksu_domain' ./fs/namespace.c; then
                 sed -i '/#include "internal.h"/a \\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\nextern bool susfs_is_current_ksu_domain(void);\nextern bool susfs_is_sdcard_android_data_decrypted __read_mostly;\n\n#define CL_COPY_MNT_NS BIT(25)\n\nstatic DEFINE_IDA(susfs_mnt_id_ida);\nstatic DEFINE_IDA(susfs_mnt_group_ida);\n\n#endif' ./fs/namespace.c
@@ -546,14 +502,12 @@ jobs:
             fi
           fi
 
-          # Sửa lỗi cho Android 15 - 6.6
+          # Android 15 - 6.6 fix
           if [[ "${{ inputs.android_version }}" == "android15" && "${{ inputs.kernel_version }}" == "6.6" ]]; then
             if [[ "$CURRENT_SUB" -ge 98 ]]; then
               cp $KERNEL_PATCHES/wild/susfs_fix_patches/v${SUSFS_VERSION}/a15-6.6/base.c.patch ./
               patch -p1 < base.c.patch || true
             fi
-            # Sửa lỗi 6.6.50~6.6.97: Bản vá SUSFS đã tham chiếu đến AS_FLAGS_SUS_MAP / susfs_is_current_proc_umounted_app
-            # Nhưng thiếu #include <linux/susfs_def.h>, dẫn đến lỗi biên dịch báo undeclared identifier
             if grep -q 'AS_FLAGS_SUS_MAP\|susfs_is_current_proc_umounted' ./fs/proc/base.c && ! grep -qF 'susfs_def.h' ./fs/proc/base.c; then
               if ! grep -qF '#include <linux/dma-buf.h>' ./fs/proc/base.c; then
                 sed -i '/#include <linux\/cpufreq_times.h>/a #include <linux\/dma-buf.h>' ./fs/proc/base.c
@@ -562,8 +516,6 @@ jobs:
               sed -i '/#include <linux\/dma-buf.h>/a #include <linux\/susfs_def.h>' ./fs/proc/base.c
               sed -i '/#include <linux\/dma-buf.h>/a #ifdef CONFIG_KSU_SUSFS_SUS_MAP' ./fs/proc/base.c
             fi
-            # Sửa lỗi ReSukiSU: Bản vá SUSFS sử dụng SUSFS_IS_INODE_SUS_MAP / SUSFS_IS_INODE_OPEN_REDIRECT
-            # Nhưng thiếu #include <linux/susfs.h>, dẫn đến lỗi biên dịch báo undeclared identifier
             if grep -q 'SUSFS_IS_INODE_SUS_MAP\|SUSFS_IS_INODE_OPEN_REDIRECT' ./fs/proc/base.c && ! grep -qF '#include <linux/susfs.h>' ./fs/proc/base.c; then
               if ! grep -qF '#include <linux/dma-buf.h>' ./fs/proc/base.c; then
                 sed -i '/#include <linux\/cpufreq_times.h>/a #include <linux\/dma-buf.h>' ./fs/proc/base.c
@@ -576,27 +528,21 @@ jobs:
             fi
           fi
 
-          # Sửa lỗi cho Android 16 - 6.12
+          # Android 16 - 6.12 fix
           if [[ "${{ inputs.android_version }}" == "android16" && "${{ inputs.kernel_version }}" == "6.12" ]]; then
-            # Sửa lỗi định nghĩa trùng lặp trong setuid_hook.c: Khi bật CONFIG_KSU_SUSFS,
-            # Khối #if (>=6.8 && MANUAL_HOOK) ở dưới cùng sẽ tạo ra định nghĩa ksu_handle_setresuid thứ hai
             SETUID_HOOK="$KERNEL_ROOT/common/drivers/kernelsu/setuid_hook.c"
             if [ -f "$SETUID_HOOK" ]; then
               sed -i 's/defined(CONFIG_KSU_MANUAL_HOOK))/!defined(CONFIG_KSU_SUSFS) \&\& defined(CONFIG_KSU_MANUAL_HOOK))/' "$SETUID_HOOK"
-              echo "Đã sửa lỗi định nghĩa trùng lặp trong setuid_hook.c"
+              echo "Đã sửa lỗi khai báo lặp setuid_hook.c"
             fi
-            # Sửa lỗi 6.12: Bản vá SUSFS thất bại ở phần đầu exec.c do ngữ cảnh không khớp
-            # Nguyên nhân: Kernel 6.12 có thêm một dòng #include <linux/dma-buf.h> giữa ksm.h và uaccess.h
-            # Dẫn đến việc chèn file header susfs_def.h thất bại, hàm susfs_is_current_proc_umounted() chưa được khai báo
             if grep -q 'susfs_is_current_proc_umounted' ./fs/exec.c && ! grep -qF '#include <linux/susfs_def.h>' ./fs/exec.c; then
-              echo "Phát hiện exec.c thiếu susfs_def.h, tiến hành chèn khai báo..."
+              echo "Phát hiện exec.c thiếu susfs_def.h, tiến hành chèn..."
               sed -i '/#include <linux\/ksm\.h>/a #ifdef CONFIG_KSU_SUSFS\n#include <linux\/susfs_def.h>\n#endif' ./fs/exec.c
             fi
           fi
 
-      # ==================== 🔤 Sửa lỗi vượt quyền Unicode ====================
-      # Sửa lỗi ký tự zero-width Unicode vượt qua lớp kiểm tra
-      - name: 🔤 Áp dụng bản vá lỗi vượt quyền Unicode
+      # ==================== Vá lỗi Unicode ====================
+      - name: 🔤 Sửa lỗi vượt quyền Unicode
         if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
@@ -606,13 +552,11 @@ jobs:
             patch -p1 --forward < "$ACTION_BUILD/patches/unicode_bypass_fix_6.1+.patch" || true
           fi
 
-      # ==================== 🗜️ Nâng cấp LZ4 và áp dụng bản vá LZ4KD/LZ4K_OPLUS ====================
-      # Xử lý thống nhất các thay đổi LZ4 liên quan đến ZRAM, giảm số bước lặp lại
+      # ==================== Nâng cấp LZ4 ====================
       - name: 🗜️ Cấu hình ngăn xếp bản vá ZRAM LZ4
         if: inputs.use_zram
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
-          # Giai đoạn 1: Nâng cấp LZ4 lên 1.10.0 và thêm tăng tốc ARM64 NEON
           echo "Đang nâng cấp LZ4..."
           rm -f lib/lz4/lz4_compress.c lib/lz4/lz4_decompress.c lib/lz4/lz4defs.h lib/lz4/lz4hc_compress.c
 
@@ -624,7 +568,6 @@ jobs:
             echo "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" >> "fs/f2fs/Makefile"
           fi
 
-          # Giai đoạn 2: Áp dụng bản vá LZ4KD và LZ4K_OPLUS
           cp -r $SUKISU_PATCHES/other/zram/lz4k/include/linux/* ./include/linux/
           cp -r $SUKISU_PATCHES/other/zram/lz4k/lib/* ./lib/
           cp -r $SUKISU_PATCHES/other/zram/lz4k/crypto/* ./crypto/
@@ -632,21 +575,19 @@ jobs:
 
           cp $SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4kd.patch ./
           if ! patch -p1 -F 3 < lz4kd.patch; then
-            echo "::warning::Áp dụng lz4kd.patch thất bại, có thể đã được áp dụng hoặc ngữ cảnh không khớp"
+            echo "::warning::lz4kd.patch lỗi, có thể đã được patch"
           fi
 
           cp $SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch ./
           if ! patch -p1 -F 3 < lz4k_oplus.patch; then
-            echo "::warning::Áp dụng lz4k_oplus.patch thất bại, có thể đã được áp dụng hoặc ngữ cảnh không khớp"
+            echo "::warning::lz4k_oplus.patch lỗi, có thể đã được patch"
           fi
 
-      # ==================== 📶 Sửa lỗi tương thích WiFi/Bluetooth 6.6 (Samsung + Xiaomi) ====================
-      # Gộp chung bản vá lỗi Samsung và Xiaomi, đồng thời sử dụng cách viết idempotent để tránh thêm lặp lại gây ra các thay đổi bẩn
+      # ==================== Fix 6.6 WiFi/BT ====================
       - name: 📶 Sửa lỗi tương thích WiFi/Bluetooth 6.6 (Samsung + Xiaomi)
         if: inputs.kernel_version == '6.6'
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
-          # Chỉ thêm vào khi dòng chưa tồn tại, tránh thực thi lặp lại làm hỏng tệp
           ensure_line_once() {
             local file="$1"
             local line="$2"
@@ -666,12 +607,10 @@ jobs:
           MIN_KDP_PATCH="$KERNEL_PATCHES/samsung/min_kdp/add-min_kdp-symbols.patch"
           MIN_KDP_DST="drivers/min_kdp.c"
 
-          # Samsung: Bổ sung ký hiệu KDP (idempotent)
           ensure_line_once "$GALAXY_SYMBOL_LIST" "kdp_set_cred_non_rcu"
           ensure_line_once "$GALAXY_SYMBOL_LIST" "kdp_usecount_dec_and_test"
           ensure_line_once "$GALAXY_SYMBOL_LIST" "kdp_usecount_inc"
 
-          # Samsung: Chỉ áp dụng patch khi có thể, bỏ qua nếu đã áp dụng/không khớp
           if [ ! -f "$MIN_KDP_PATCH" ]; then
             echo "::error::Bản vá không tồn tại: $MIN_KDP_PATCH"
             exit 1
@@ -679,10 +618,9 @@ jobs:
           if patch -p1 --dry-run < "$MIN_KDP_PATCH" >/dev/null 2>&1; then
             patch -p1 --no-backup-if-mismatch < "$MIN_KDP_PATCH"
           else
-            echo "Bản vá min_kdp symbols đã được áp dụng hoặc ngữ cảnh hiện tại không khớp, bỏ qua."
+            echo "Bản vá min_kdp symbols đã tồn tại, bỏ qua."
           fi
 
-          # Samsung: Sao chép mã nguồn driver và đảm bảo Makefile chỉ được thêm một lần
           if [ ! -f "$MIN_KDP_SRC" ]; then
             echo "::error::Tệp không tồn tại: $MIN_KDP_SRC"
             exit 1
@@ -690,22 +628,18 @@ jobs:
           cp "$MIN_KDP_SRC" "$MIN_KDP_DST"
           ensure_line_once "$DRIVERS_MAKEFILE" "obj-y += min_kdp.o"
 
-          # Xiaomi: Bổ sung ký hiệu (idempotent)
           ensure_line_once "$XIAOMI_SYMBOL_LIST" "device_find_any_child"
 
-      # ==================== 💾 Sao lưu defconfig gốc ====================
-      # Được sử dụng để tạo phân mảnh (fragment) defconfig sau này (tương thích bazel trim)
+      # ==================== Backup defconfig ====================
       - name: 💾 Sao lưu defconfig gốc
         run: cp "$DEFCONFIG" "$DEFCONFIG.orig"
 
-      # ==================== 🗜️ Cấu hình tùy chọn ZRAM ====================
-      # Kích hoạt các thuật toán nén ZRAM khác nhau
+      # ==================== Config ZRAM ====================
       - name: 🗜️ Cấu hình tùy chọn ZRAM
         if: inputs.use_zram
         run: |
           CONFIG_FILE="$DEFCONFIG"
 
-          # 5.10 cần cấu hình cơ bản bổ sung
           if [ "${{ inputs.kernel_version }}" = "5.10" ]; then
             cat >> "$CONFIG_FILE" <<'EOF'
           CONFIG_ZSMALLOC=y
@@ -716,7 +650,6 @@ jobs:
           EOF
           fi
 
-          # 5.15 / 6.1: Chuyển module thành built-in
           if [ "${{ inputs.kernel_version }}" != "6.6" ] && [ "${{ inputs.kernel_version }}" != "5.10" ]; then
             if grep -q "CONFIG_ZSMALLOC" "$CONFIG_FILE"; then
               sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' "$CONFIG_FILE"
@@ -726,24 +659,20 @@ jobs:
             sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
           fi
 
-          # 6.6: Chuyển module thành built-in
           if [ "${{ inputs.kernel_version }}" = "6.6" ]; then
             echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
             sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
           fi
 
-          # android14/15: Xóa khai báo module zram/zsmalloc khỏi modules.bzl
           if [ "${{ inputs.android_version }}" = "android14" ] || [ "${{ inputs.android_version }}" = "android15" ]; then
             sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$KERNEL_ROOT/common/modules.bzl"
           fi
 
-          # Kích hoạt thuật toán nén (sử dụng tệp fragment độc lập)
           if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
             cat "$ZZH_PATCHES/config/zram.config" >> "$CONFIG_FILE"
           fi
 
-      # ==================== 🛡️ Thêm bản vá chống brick BBG ====================
-      # BBG (Baseband Guard) ngăn chặn các cuộc tấn công format baseband
+      # ==================== Add BBG ====================
       - name: 🛡️ Thêm bản vá chống brick BBG
         if: inputs.use_bbg
         working-directory: ${{ env.KERNEL_ROOT }}
@@ -752,24 +681,21 @@ jobs:
           echo "CONFIG_BBG=y" >> common/arch/arm64/configs/gki_defconfig
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' common/security/Kconfig
 
-      # ==================== ❄️ Áp dụng Re-Kernel ====================
-      # Re-Kernel cung cấp chức năng bảo vệ cấp độ kernel thông qua GKI Vendor Hooks
+      # ==================== Apply Re-Kernel ====================
       - name: ❄️ Áp dụng Re-Kernel
         if: inputs.use_rekernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           set -e
-          echo "Đang tích hợp Re-Kernel..."
+          echo "Tích hợp Re-Kernel..."
           TMP_REKERNEL=/tmp/rekernel
           rm -rf "$TMP_REKERNEL"
           git clone --depth 1 https://github.com/Sakion-Team/Re-Kernel.git "$TMP_REKERNEL"
 
-          # Chuẩn bị mã nguồn driver
           mkdir -p common/drivers/rekernel
           cp "$TMP_REKERNEL/LKM-Source/rekernel.c" common/drivers/rekernel/
           cp "$TMP_REKERNEL/LKM-Source/rekernel.h" common/drivers/rekernel/
 
-          # Tạo cấu hình build
           cat > common/drivers/rekernel/Kconfig << 'EOF'
           menu "Re:Kernel"
           config REKERNEL
@@ -790,7 +716,6 @@ jobs:
           ccflags-$(CONFIG_REKERNEL_NETWORK) += -DNETWORK_FILTER
           EOF
 
-          # Gắn vào cây driver
           if ! grep -qF 'source "drivers/rekernel/Kconfig"' common/drivers/Kconfig; then
             sed -i '/^endmenu$/i source "drivers/rekernel/Kconfig"' common/drivers/Kconfig
           fi
@@ -798,24 +723,19 @@ jobs:
             echo 'obj-$(CONFIG_REKERNEL) += rekernel/' >> common/drivers/Makefile
           fi
 
-          # Kích hoạt macro phiên bản kernel
           REKERNEL_H="common/drivers/rekernel/rekernel.h"
           VERSION_MACRO="KERNEL_$(echo "${{ inputs.kernel_version }}" | tr '.' '_')"
           if grep -q "^// #define ${VERSION_MACRO}$" "$REKERNEL_H"; then
             sed -i "s|^// #define ${VERSION_MACRO}$|#define ${VERSION_MACRO}|" "$REKERNEL_H"
           fi
 
-          # Sửa lại đường dẫn bao gồm tệp header (để thích ứng với in-tree build)
           sed -i 's|#include <../android/binder_internal.h>|#include "../../drivers/android/binder_internal.h"|g' common/drivers/rekernel/rekernel.c
-          # Bổ sung dependency binder_internal (tránh lỗi DEFINE_SHOW_ATTRIBUTE ở kernel 5.10)
           grep -qF '#include <linux/seq_file.h>' common/drivers/rekernel/rekernel.c || sed -i '/#include <trace\/hooks\/signal.h>/a #include <linux/seq_file.h>' common/drivers/rekernel/rekernel.c
 
-          # Cấu hình defconfig (idempotent)
           grep -q '^CONFIG_REKERNEL=y$' "$DEFCONFIG" || echo "CONFIG_REKERNEL=y" >> "$DEFCONFIG"
           grep -q '^CONFIG_REKERNEL_NETWORK=y$' "$DEFCONFIG" || echo "CONFIG_REKERNEL_NETWORK=y" >> "$DEFCONFIG"
 
-      # ==================== ⚙️ Cấu hình tùy chọn Kernel ====================
-      # Thêm KernelSU và các cấu hình kernel cần thiết khác
+      # ==================== Config Kernel ====================
       - name: ⚙️ Cấu hình tùy chọn Kernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
@@ -825,7 +745,6 @@ jobs:
           CONFIG_TMPFS_POSIX_ACL=y
           EOF
 
-          # Gỡ bỏ kiểm tra defconfig
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
       - name: 📦 Bật KPM
@@ -835,8 +754,7 @@ jobs:
             echo "CONFIG_KPM=y" >> "$DEFCONFIG"
           fi
 
-      # ==================== 👻 Thêm cấu hình SUSFS ====================
-      # Bật các chức năng ẩn của SUSFS
+      # ==================== SUSFS Defconfig ====================
       - name: 👻 Thêm cấu hình SUSFS
         if: inputs.enable_susfs
         run: |
@@ -853,25 +771,22 @@ jobs:
           CONFIG_KSU_SUSFS_SUS_MAP=y
           EOF
 
-      # ==================== 🏷️ Cấu hình tên Kernel ====================
+      # ==================== Kernel Name ====================
       - name: 🏷️ Cấu hình tên Kernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           if [ -f "build/build.sh" ]; then
             sed -i 's/-dirty//' ./common/scripts/setlocalversion
           else
-            # Cấu hình kernel 6.1+
             sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' ./common/BUILD.bazel
             sed -i '/kmi_symbol_list_strict_mode/d' ./common/BUILD.bazel
             rm -rf ./common/android/abi_gki_protected_exports_*
             sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
           fi
 
-          # Cấu hình tên kernel
           if [ -n "${{ inputs.version }}" ]; then
             CLEAN_VERSION=$(echo "${{ inputs.version }}" | sed -E 's/^[0-9]+\.[0-9]+\.[0-9]+//')
             
-            # Định nghĩa KMI_TAG (thống nhất với phiên bản tự động)
             case "${{ inputs.android_version }}-${{ inputs.kernel_version }}" in
               "android14-6.1")  KMI_TAG="android14-11" ;;
               "android15-6.6")  KMI_TAG="android15-8" ;;
@@ -880,16 +795,13 @@ jobs:
             esac
             
             if [ "${{ inputs.kernel_version }}" = "6.1" ]; then
-              # 6.1: Định dạng cũ, bao gồm KMI_TAG
               KMI_LOCAL="-${KMI_TAG}${CLEAN_VERSION}"
               sed -i "\$s|echo \"\$res\"|echo \"${KMI_LOCAL}\"|" ./common/scripts/setlocalversion 2>/dev/null || true
               sed -i "/^CONFIG_LOCALVERSION=/ s/=\"[^\"]*\"/=\"${KMI_LOCAL}\"/" ./common/arch/arm64/configs/gki_defconfig 2>/dev/null || true
             elif [ "${{ inputs.kernel_version }}" = "5.10" ] || [ "${{ inputs.kernel_version }}" = "5.15" ]; then
-              # 5.x: Định dạng cũ, không bao gồm KMI_TAG
               sed -i "\$s|echo \"\$res\"|echo \"${CLEAN_VERSION}\"|" ./common/scripts/setlocalversion 2>/dev/null || true
               sed -i '/^CONFIG_LOCALVERSION=/ s/="\([^"]*\)"/="'"$CLEAN_VERSION"'"/' ./common/arch/arm64/configs/gki_defconfig
             else
-              # 6.6+: Định dạng mới setlocalversion, bao gồm KMI_TAG
               SUFFIX="-${KMI_TAG}${CLEAN_VERSION}"
               perl -i -0777 -pe 's/(.*)echo "\$\{KERNELVERSION\}\$\{file_localversion\}\$\{config_localversion\}\$\{LOCALVERSION\}\$\{scm_version\}"/$1echo "\$\{KERNELVERSION\}'"${SUFFIX}"'"/s' ./common/scripts/setlocalversion 2>/dev/null || true
             fi
@@ -897,7 +809,6 @@ jobs:
             cd ./common
             BID="ab$((RANDOM % 90000000 + 10000000))"
             GHASH=$(git rev-parse --verify HEAD | cut -c1-13)
-            # Thống nhất định dạng tên kernel: -androidXX-KMI-gHASH-BID-4k
             case "${{ inputs.android_version }}-${{ inputs.kernel_version }}" in
               "android14-6.1")  KMI_TAG="android14-11" ;;
               "android15-6.6")  KMI_TAG="android15-8" ;;
@@ -906,23 +817,19 @@ jobs:
             esac
 
             if [ "${{ inputs.kernel_version }}" = "6.1" ]; then
-              # 6.1: Chèn tên phiên bản thông qua setlocalversion (định dạng cũ)
               KMI_LOCAL="-${KMI_TAG}-g${GHASH}-${BID}-4k"
               sed -i "\$s|echo \"\$res\"|echo \"${KMI_LOCAL}\"|" ./scripts/setlocalversion 2>/dev/null || true
               sed -i "/^CONFIG_LOCALVERSION=/ s/=\"[^\"]*\"/=\"${KMI_LOCAL}\"/" ./arch/arm64/configs/gki_defconfig 2>/dev/null || true
             else
-              # 6.6+: Sửa setlocalversion để chèn tên phiên bản (định dạng mới, tham khảo wild_kernel)
-              # Giữ nguyên ${KERNELVERSION} và ${config_localversion} để kịch bản phân tích trong lúc chạy
               SUFFIX="-${KMI_TAG}-g${GHASH}-${BID}"
               perl -i -0777 -pe 's/(.*)echo "\$\{KERNELVERSION\}\$\{file_localversion\}\$\{config_localversion\}\$\{LOCALVERSION\}\$\{scm_version\}"/$1echo "\$\{KERNELVERSION\}'"${SUFFIX}"'\$\{config_localversion\}"/s' ./scripts/setlocalversion 2>/dev/null || true
             fi
           fi
 
-      # ==================== 🕒 Thời gian build tùy chỉnh ====================
-      - name: 🕒 Đặt thời gian build tùy chỉnh
+      # ==================== Build Time ====================
+      - name: 🕒 Cài đặt thời gian build tùy chỉnh
         shell: bash
         run: |
-          # Đọc đầu vào: Khi nhập N/n hoặc để trống, sẽ sử dụng thời gian UTC hiện tại
           INPUT_TIME="${{ inputs.build_time }}"
           if [[ -n "$INPUT_TIME" && "$INPUT_TIME" != "N" && "$INPUT_TIME" != "n" ]]; then
             DATESTR="$INPUT_TIME"
@@ -930,19 +837,17 @@ jobs:
             DATESTR="$(TZ='UTC' date +'%a %b %d %T %Z %Y')"
           fi
 
-          # Xuất ra cho quá trình biên dịch tiếp theo
-          echo "Sử dụng thời gian build: $DATESTR"
+          echo "Sử dụng giờ build: $DATESTR"
           echo "KBUILD_BUILD_TIMESTAMP=$DATESTR" >> "$GITHUB_ENV"
           echo "KBUILD_BUILD_VERSION=1" >> "$GITHUB_ENV"
 
-          # Xử lý thống nhất bản vá mkcompile_h
           f="$KERNEL_ROOT/common/scripts/mkcompile_h"
           if [ -f "$f" ]; then
             if [[ "${{ inputs.kernel_version }}" == "5.10" || "${{ inputs.kernel_version }}" == "5.15" ]]; then
-              echo "Áp dụng bản vá dấu thời gian cổ điển 5.x: $f"
+              echo "Áp dụng patch mkcompile_h 5.x: $f"
               perl -pi -e "s{UTS_VERSION=\"\\\$\(echo \\\$UTS_VERSION \\\$CONFIG_FLAGS \\\$TIMESTAMP \\| cut -b -\\\$UTS_LEN\)\"}{UTS_VERSION=\"#1 SMP PREEMPT $DATESTR\"}" "$f"
             else
-              echo "Áp dụng bản vá mkcompile_h 6.x: $f"
+              echo "Áp dụng patch mkcompile_h 6.x: $f"
               if grep -q 'UTS_VERSION=' "$f"; then
                 perl -pi -e "s{UTS_VERSION=\"\\\$\\\(.*?\\\)\"}{UTS_VERSION=\"#1 SMP PREEMPT $DATESTR\"}" "$f"
               else
@@ -951,23 +856,22 @@ jobs:
             fi
           fi
 
-      # ==================== 🔨 Biên dịch Kernel ====================
-      # Biên dịch kernel có sử dụng cơ chế thử lại, tự động thử lại khi quá thời gian
-      - name: 🔨 Build - Lỗi nếu KSU chưa đồng bộ code SUSFS hoặc lỗi lúc compile (đợi kho KSU fix)
+      # ==================== Compile ====================
+      - name: 🔨 Build Kernel (Tự động thử lại nếu lỗi)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 30
           max_attempts: 3
           retry_on: timeout
           command: |
-            echo "::group::Hướng dẫn Build"
-            echo "Trong trường hợp bình thường sẽ không có lỗi, trừ khi code ở kho KSU và kho SUSFS khác nhau."
-            echo "Đừng hỏi, đừng vội, lỗi này không phải do bạn và phản hồi cho mình cũng không giải quyết được vì nó nằm ở upstream."
-            echo "Hãy kiên nhẫn chờ bản fix, nếu có thể, hãy tự gửi patch lên repo của SUKISU,"
+            echo "::group::📝 Hướng dẫn"
+            echo "Thường không có lỗi trừ khi repo KSU và SUSFS bất đồng bộ."
+            echo "Việc lỗi ở bước này hoàn toàn thuộc về upstream, không phải do cách bạn build."
+            echo "Hãy kiên nhẫn chờ các dev fix code nhé!"
             echo "::endgroup::"
             
-            echo "Ngày commit mới nhất của KSU hiện tại: ${KSU_LATEST_COMMIT_DATE}"
-            echo "Ngày commit mới nhất của SUSFS hiện tại: ${SUSFS_LATEST_COMMIT_DATE}"
+            echo "Ngày commit KSU: ${KSU_LATEST_COMMIT_DATE}"
+            echo "Ngày commit SUSFS: ${SUSFS_LATEST_COMMIT_DATE}"
             set -ex
             cd "$KERNEL_ROOT"
 
@@ -976,24 +880,19 @@ jobs:
             sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./common/build.config.gki.aarch64
 
             if [ -f "build/build.sh" ]; then
-              # Kernel 5.x sử dụng kịch bản build truyền thống
               LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh CC="/usr/bin/ccache clang" || exit 1
               strings "out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/Image" | grep 'Linux version'
             else
-              # Kernel 6.1+ sử dụng Bazel để build
-              # Trích xuất các thay đổi của gki_defconfig vào fragment, tránh lỗi khi bazel trim kiểm tra
               FRAG="common/arch/arm64/configs/ksu.fragment"
               diff "$DEFCONFIG.orig" "$DEFCONFIG" | grep '^>' | sed 's/^> //; s/^[[:space:]]*//' > "$FRAG" || true
               cp "$DEFCONFIG.orig" "$DEFCONFIG"
-              echo "=== Nội dung KSU Fragment ==="
+              echo "=== KSU Fragment ==="
               cat "$FRAG"
               echo "========================="
-              # Chỉ truyền tham số khi fragment không trống
               FRAG_FLAG=""
               if [ -s "$FRAG" ]; then
                 FRAG_FLAG="--defconfig_fragment=//common:arch/arm64/configs/ksu.fragment"
               fi
-              # 6.12+ sử dụng lto=none (module kernel Rust không tương thích với thin LTO)
               LTO_FLAG="--lto=thin"
               if [ "${{ inputs.kernel_version }}" = "6.12" ]; then
                 LTO_FLAG="--lto=none"
@@ -1002,14 +901,11 @@ jobs:
               strings ./bazel-bin/common/kernel_aarch64/Image | grep 'Linux version'
             fi
 
-            echo "Bình thường sẽ không có lỗi, trừ khi code ở kho KSU và kho SUSFS khác nhau."
-            echo "Đừng hỏi, đừng vội, điều này không liên quan đến sự cố gắng của bạn hay phản hồi lại mình, vì nó không liên quan đến mình."
-            echo "Chỉ cần đợi được hỗ trợ, hoặc nếu có khả năng bạn tự gửi code lên kho SUKISU,"
-            echo "Ngày commit mới nhất của KSU hiện tại: ${KSU_LATEST_COMMIT_DATE}"
-            echo "Ngày commit mới nhất của SUSFS hiện tại: ${SUSFS_LATEST_COMMIT_DATE}"
-            echo "Nếu hai ngày này quá khác biệt hoặc cách nhau quá xa, patch sẽ không hoạt động dẫn đến lỗi biên dịch"
-      # ==================== 📦 Bản vá KPM (ReSukiSU) ====================
-      # Áp dụng bản vá KPM (Kernel Patch Module) cho ReSukiSU
+            echo "Ngày commit KSU: ${KSU_LATEST_COMMIT_DATE}"
+            echo "Ngày commit SUSFS: ${SUSFS_LATEST_COMMIT_DATE}"
+            echo "Nếu lỗi, hãy chờ upstream đồng bộ!"
+            
+      # ==================== KPM Patch ====================
       - name: 📦 Áp dụng bản vá KPM (ReSukiSU)
         if: inputs.use_kpm
         run: |
@@ -1031,8 +927,7 @@ jobs:
           rm -rf Image
           mv oImage Image
 
-      # ==================== 💿 Chuẩn bị Boot Image ====================
-      # Sao chép sản phẩm đã build vào thư mục làm việc
+      # ==================== Prepare Image ====================
       - name: 💿 Chuẩn bị Boot Image
         run: |
           mkdir -p bootimgs
@@ -1049,7 +944,7 @@ jobs:
           cp "$SRC_DIR/Image.lz4" ./
           gzip -n -k -f -9 ./Image > ./Image.gz
 
-      # ==================== 📦 Đóng gói AnyKernel3 ====================
+      # ==================== AnyKernel3 ====================
       - name: 📦 Đóng gói AnyKernel3
         run: |
           cd $ANYKERNEL3
@@ -1057,8 +952,7 @@ jobs:
           mv ../Image ./Image
           zip -r "../$ZIP_NAME" ./*
 
-      # ==================== 💿 Build Boot Image (Android 12) ====================
-      # Android 12 cần trích xuất ramdisk từ image được chứng nhận GKI
+      # ==================== Boot Image A12 ====================
       - name: 💿 Build Boot Image (Android 12)
         if: inputs.android_version == 'android12'
         working-directory: bootimgs
@@ -1078,46 +972,38 @@ jobs:
 
           gzip -n -k -f -9 ./Image > ./Image.gz
 
-          # Tạo boot.img thông thường
           $MKBOOTIMG --header_version 4 --kernel Image --output boot.img --ramdisk out/ramdisk --os_version 12.0.0 --os_patch_level "${{ inputs.os_patch_level }}"
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot.img
 
-          # Tạo boot.img nén gzip
           $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img --ramdisk out/ramdisk --os_version 12.0.0 --os_patch_level "${{ inputs.os_patch_level }}"
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot-gz.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-gz.img
 
-          # Tạo boot.img nén lz4
           $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img --ramdisk out/ramdisk --os_version 12.0.0 --os_patch_level "${{ inputs.os_patch_level }}"
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot-lz4.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-lz4.img
 
-      # ==================== 💿 Build Boot Image (Android 13+) ====================
-      # Các phiên bản Android 13 trở lên không cần ramdisk
+      # ==================== Boot Image A13+ ====================
       - name: 💿 Build Boot Image (Android 13+)
         if: inputs.android_version == 'android13' || inputs.android_version == 'android14' || inputs.android_version == 'android15' || inputs.android_version == 'android16'
         working-directory: bootimgs
         run: |
           gzip -n -k -f -9 ./Image > ./Image.gz
 
-          # Tạo boot.img thông thường
           $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot.img
 
-          # Tạo boot.img nén gzip
           $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot-gz.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-gz.img
 
-          # Tạo boot.img nén lz4
           $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot-lz4.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-lz4.img
 
-      # ==================== ⚠️ Thu thập file xung đột patch ====================
-      # Thu thập toàn bộ file .rej để gỡ lỗi patch
+      # ==================== Rejects ====================
       - name: ⚠️ Thu thập file xung đột patch
         if: always()
         run: |
@@ -1126,7 +1012,7 @@ jobs:
 
           mapfile -t REJS < <(find "$KERNEL_ROOT" -type f -name '*.rej')
           REJ_COUNT=${#REJS[@]}
-          echo "Phát hiện $REJ_COUNT file .rej"
+          echo "Tìm thấy $REJ_COUNT file .rej"
           echo "REJ_COUNT=$REJ_COUNT" >> $GITHUB_ENV
 
           if [ "$REJ_COUNT" -gt 0 ]; then
@@ -1144,7 +1030,7 @@ jobs:
             done
           fi
 
-      # ==================== 📤 Upload Artifacts ====================
+      # ==================== Upload Artifacts ====================
       - name: 📤 Upload Artifacts (Sản phẩm build)
         uses: actions/upload-artifact@v6
         with:
@@ -1154,7 +1040,6 @@ jobs:
             *.img
           compression-level: 9
 
-      # ==================== 📤 Upload file patch lỗi ====================
       - name: 📤 Upload file patch lỗi
         if: always() && env.REJ_COUNT > 0
         uses: actions/upload-artifact@v6

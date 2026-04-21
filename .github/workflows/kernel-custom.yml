@@ -1,8 +1,4 @@
-name: Android 内核构建-自定义
-
-# 适配 Node.js 24
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+name: 🛠️ Build Kernel Android - Tùy chỉnh
 
 permissions:
   contents: write
@@ -11,9 +7,9 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      # ==================== 内核版本配置 ====================
+      # ==================== Cấu hình phiên bản ====================
       android_version:
-        description: "Android 版本"
+        description: "📱 Phiên bản Android"
         required: true
         type: choice
         options:
@@ -24,7 +20,7 @@ on:
           - android16
         default: android12
       kernel_version:
-        description: "内核版本"
+        description: "🐧 Phiên bản Kernel"
         required: true
         type: choice
         options:
@@ -35,75 +31,89 @@ on:
           - "6.12"
         default: "5.10"
       sub_level:
-        description: "子版本号 (如 66, 198, X)"
+        description: "🔢 Số phiên bản phụ (Ví dụ: 66, 198, X)"
         required: true
         type: string
         default: "66"
       os_patch_level:
-        description: "安全补丁级别 (如 2022-01, lts)"
+        description: "🛡️ Cấp độ bản vá (Ví dụ: 2022-01, lts)"
         required: true
         type: string
         default: "2022-01"
       revision:
-        description: "修订版本 (如 r11, 仅 5.10 需要)"
+        description: "📝 Revision (VD: r11, chỉ cần thiết cho 5.10)"
         required: false
         type: string
         default: "r11"
 
-      # ==================== KernelSU 配置 ====================
-      # KernelSU 变体固定为 ReSukiSU
+      # ==================== Cấu hình KernelSU ====================
+      kernelsu_variant:
+        description: "🧬 Biến thể KernelSU"
+        required: true
+        type: choice
+        options:
+          - Official
+          #- Next
+          - MKSU
+          - SukiSU
+          - ReSukiSU
+        default: ReSukiSU
       kernelsu_branch:
-        description: "KSU 分支 (main/builtin/自定义commit hash，留空使用默认)"
-        required: false
-        type: string
-        default: ""
+        description: "🌿 Nhánh KSU"
+        required: true
+        type: choice
+        options:
+          - Stable(Chuẩn)
+          - Dev(Phát triển)
+          - Other(Khác/Chỉ định)
+        default: Stable(Chuẩn)
 
-      # ==================== 可选配置 ====================
+      # ==================== Cấu hình tùy chọn ====================
       version:
-        description: "自定义版本名 (可选)"
+        description: "🏷️ Tên phiên bản tùy chỉnh (Tùy chọn)"
         required: false
         type: string
       build_time:
-        description: "自定义构建时间 (可选，N或留空=当前UTC)"
+        description: "🕒 Giờ Build (Tùy chọn, N hoặc trống=UTC hiện tại)"
         required: false
         type: string
         default: "Sun Dec 01 08:10:00 UTC 2024"
 
-      # ==================== 功能开关 ====================
+      # ==================== Công tắc tính năng ====================
       use_zram:
-        description: "启用 ZRAM 增强算法"
+        description: "🗜️ Bật thuật toán tối ưu ZRAM"
         required: true
         type: boolean
         default: false
       use_bbg:
-        description: "启用 BBG 防格机"
+        description: "🛡️ Bật BBG chống brick"
         required: true
         type: boolean
         default: false
       use_kpm:
-        description: "启用 KPM 功能"
+        description: "📦 Bật chức năng KPM"
         required: true
         type: boolean
         default: false
       use_rekernel:
-        description: "启用 Re-Kernel 驱动"
+        description: "❄️ Bật trình điều khiển Re-Kernel"
         required: false
         type: boolean
         default: false
       cancel_susfs:
-        description: "禁用 SUSFS"
+        description: "❌ Vô hiệu hóa SUSFS"
         required: true
         type: boolean
         default: false
       supp_op:
-        description: "启用一加 8E 支持"
+        description: "⚙️ Bật hỗ trợ OnePlus 8E"
         required: false
         type: boolean
         default: false
 
 jobs:
   build-custom-kernel:
-    name: "${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }}"
+    name: "🔨 ${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }}"
     uses: ./.github/workflows/build.yml
     secrets: inherit
     with:
@@ -112,7 +122,7 @@ jobs:
       sub_level: ${{ inputs.sub_level }}
       os_patch_level: ${{ inputs.os_patch_level }}
       revision: ${{ inputs.revision || '' }}
-      ksu_variant: "ReSukiSU"
+      ksu_variant: ${{ inputs.kernelsu_variant }}
       ksu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time || '' }}
@@ -126,3 +136,5 @@ jobs:
   get-ksu-manager:
     uses: ./.github/workflows/get-manager.yml
     secrets: inherit
+    with:
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
