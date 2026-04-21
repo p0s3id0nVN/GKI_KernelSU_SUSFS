@@ -1,0 +1,229 @@
+name: 🚑 Dọn dẹp Release và Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: '🏷️ Tag Release mục tiêu (Bỏ trống nếu chọn xóa TẤT CẢ)'
+        required: false
+        type: string
+      issue_type:
+        description: '🚨 Loại sự cố / Hành động'
+        required: true
+        type: choice
+        options:
+          - Normal
+          - Bug
+          - Critical
+          - Delete_Target
+          - Delete_ALL
+      reference:
+        description: '🔗 Link hoặc mô tả sự cố (Tùy chọn)'
+        required: false
+        type: string
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    # Chỉ cho phép chủ sở hữu repo thực thi
+    if: github.actor == github.repository_owner
+
+    steps:
+      # ==================== Xác minh Đối tượng ====================
+      - name: 🔍 Xác minh Đối tượng
+        if: inputs.issue_type != 'Delete_ALL'
+        run: |
+          if [ -z "${{ inputs.target_tag }}" ]; then
+            echo "::error::Vui lòng nhập Tag Release mục tiêu!"
+            exit 1
+          fi
+          if ! gh release view "${{ inputs.target_tag }}" --repo ${{ github.repository }} > /dev/null 2>&1; then
+            if [ "${{ inputs.issue_type }}" == "Delete_Target" ]; then
+              echo "⚠️ Không tìm thấy Release '${{ inputs.target_tag }}', nhưng sẽ tiếp tục để xóa Tag."
+            else
+              echo "::error::Release '${{ inputs.target_tag }}' không tồn tại"
+              exit 1
+            fi
+          else
+            echo "✅ Đã tìm thấy Release: ${{ inputs.target_tag }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== Lấy thông tin gốc ====================
+      - name: ℹ️ Lấy thông tin Release gốc
+        if: inputs.issue_type == 'Normal' || inputs.issue_type == 'Bug' || inputs.issue_type == 'Critical'
+        id: info
+        run: |
+          gh release view "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
+            --json name,body,isPrerelease > release_info.json
+
+          jq -r '.name' release_info.json > original_title.txt
+          jq -r '.body' release_info.json > original_body.txt
+
+          IS_PRERELEASE=$(jq -r '.isPrerelease' release_info.json)
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+
+          echo "📋 Tiêu đề gốc: $(cat original_title.txt)"
+          echo "📋 Pre-release: $IS_PRERELEASE"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== Xử lý loại Normal ====================
+      - name: 🟢 Xử lý loại Normal - Đánh dấu bình thường
+        if: inputs.issue_type == 'Normal'
+        run: |
+          cat > new_body.md << 'EOF'
+          > [!TIP]
+          > **Phiên bản này đã được xác minh và có thể sử dụng bình thường.**
+          >
+          > **This release has been verified and is safe to use.**
+          EOF
+
+          sed -i 's/^          //' new_body.md
+
+          if [ -n "${{ inputs.reference }}" ]; then
+            echo "" >> new_body.md
+            echo "**Tham khảo / Reference**: ${{ inputs.reference }}" >> new_body.md
+          fi
+
+          echo "" >> new_body.md
+          echo "---" >> new_body.md
+          echo "" >> new_body.md
+          cat original_body.txt >> new_body.md
+
+          gh release edit "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
+            --notes-file new_body.md
+
+          echo "✅ Đã đánh dấu Release là bình thường (Normal)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== Xử lý loại Bug ====================
+      - name: 🟡 Xử lý loại Bug
+        if: inputs.issue_type == 'Bug'
+        run: |
+          cat > new_body.md << 'EOF'
+          > [!WARNING]
+          > **Phiên bản này có lỗi đã biết (Bug), khuyên bạn nên sử dụng cẩn thận.**
+          >
+          > **This release contains known bugs, use with caution.**
+          EOF
+
+          sed -i 's/^          //' new_body.md
+
+          if [ -n "${{ inputs.reference }}" ]; then
+            echo "" >> new_body.md
+            echo "**Tham khảo / Reference**: ${{ inputs.reference }}" >> new_body.md
+          fi
+
+          echo "" >> new_body.md
+          echo "---" >> new_body.md
+          echo "" >> new_body.md
+          cat original_body.txt >> new_body.md
+
+          gh release edit "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
+            --notes-file new_body.md
+
+          echo "✅ Đã cập nhật mô tả Release (Bug)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== Xử lý loại Critical ====================
+      - name: 🔴 Xử lý loại Critical - Xóa file và tạo lại Release
+        if: inputs.issue_type == 'Critical'
+        run: |
+          ORIGINAL_TITLE=$(cat original_title.txt)
+
+          # Tạo thông báo cảnh báo
+          cat > new_body.md << 'EOF'
+          > [!CAUTION]
+          > **Tài nguyên của bản phát hành này chứa lỗi nghiêm trọng gây treo máy, toàn bộ file đính kèm đã bị xóa!**
+          >
+          > **Vui lòng KHÔNG sử dụng phiên bản này, hãy chờ bản sửa lỗi được phát hành.**
+          >
+          > **This release contained a critical bug causing device crashes. All assets have been removed!**
+          >
+          > **DO NOT use this version. Please wait for a fixed release.**
+          EOF
+
+          sed -i 's/^          //' new_body.md
+
+          if [ -n "${{ inputs.reference }}" ]; then
+            echo "" >> new_body.md
+            echo "**Tham khảo / Reference**: ${{ inputs.reference }}" >> new_body.md
+          fi
+
+          echo "" >> new_body.md
+          echo "---" >> new_body.md
+          echo "" >> new_body.md
+          cat original_body.txt >> new_body.md
+
+          # Xóa Release (Giữ lại Git Tag)
+          echo "🗑️ Đang xóa Release gốc..."
+          gh release delete "${{ inputs.target_tag }}" --repo ${{ github.repository }} --yes
+
+          # Cờ prerelease
+          PRERELEASE_FLAG=""
+          if [ "${{ steps.info.outputs.is_prerelease }}" == "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          # Tạo lại Release (Không upload bất kỳ file nào)
+          echo "🔄 Đang tạo lại Release..."
+          gh release create "${{ inputs.target_tag }}" --repo ${{ github.repository }} \
+            --title "$ORIGINAL_TITLE" \
+            --notes-file new_body.md \
+            $PRERELEASE_FLAG
+
+          echo "✅ Đã xóa sạch file đính kèm và tạo lại Release (Critical)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== Xử lý loại Delete Target ====================
+      - name: 🗑️ Xóa hoàn toàn 1 Release và Tag (Delete_Target)
+        if: inputs.issue_type == 'Delete_Target'
+        run: |
+          echo "🗑️ Đang xóa Release: ${{ inputs.target_tag }}..."
+          gh release delete "${{ inputs.target_tag }}" --repo ${{ github.repository }} --yes || true
+          
+          echo "🗑️ Đang xóa Tag: ${{ inputs.target_tag }}..."
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/${{ inputs.target_tag }}" || true
+          
+          echo "✅ Đã xóa hoàn toàn Release và Tag: ${{ inputs.target_tag }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== Xử lý loại Delete ALL ====================
+      - name: ☢️ Xóa TẤT CẢ Release và Tag (Delete_ALL)
+        if: inputs.issue_type == 'Delete_ALL'
+        run: |
+          echo "⚠️ CẢNH BÁO: ĐANG XÓA TOÀN BỘ RELEASE VÀ TAG TRONG KHO LƯU TRỮ..."
+          
+          echo "Đang lấy danh sách Release..."
+          RELEASES=$(gh release list --repo ${{ github.repository }} --limit 1000 | awk '{print $1}')
+          for tag in $RELEASES; do
+            echo "Đang xóa Release: $tag"
+            gh release delete "$tag" --repo ${{ github.repository }} --yes || true
+          done
+          
+          echo "Đang lấy danh sách Tag..."
+          TAGS=$(gh api repos/${{ github.repository }}/git/matching-refs/tags/ --jq '.[].ref' 2>/dev/null | sed 's|^refs/tags/||' || echo "")
+          for tag in $TAGS; do
+            echo "Đang xóa Tag: $tag"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" || true
+          done
+          
+          echo "✅ Đã xóa toàn bộ Release và Tag!"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== Hoàn tất ====================
+      - name: ✅ Hoàn tất
+        run: |
+          echo "=========================================="
+          echo "🎯 Tag mục tiêu: ${{ inputs.target_tag || 'TẤT CẢ' }}"
+          echo "📌 Hành động: ${{ inputs.issue_type }}"
+          echo "📝 Thông tin tham khảo: ${{ inputs.reference || 'Không có' }}"
+          echo "=========================================="
+          echo "✅ Dọn dẹp khẩn cấp hoàn tất!"
