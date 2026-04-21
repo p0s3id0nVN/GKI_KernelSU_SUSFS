@@ -22,8 +22,8 @@ jobs:
     steps:
       - name: 发送 Telegram 群组通知(频道讨论组)
         env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID_3 }}
+          BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID_3 }}
         run: |
           set -euo pipefail
